@@ -13,8 +13,8 @@ import argparse
 import rospy
 from geometry_msgs.msg import Twist
 
-START = [10, 10, 0]
-GOAL = [30, 30]
+START = [1, 1, 0]
+GOAL = [5, 1.5]
 RPM = [100, 200]
 CLEARANCE = 0.01
 
@@ -119,26 +119,27 @@ class Map:
 
 class NewMap(Map):
     def __init__(self):
-        super().__init__([0,0],[10,10])
+        super().__init__([0,0],[6,2])
         self.hurdles = [
-            Polygon([[2,2],[3,2],[3,3],[2,3]]),
-            Polygon([[5,5],[5,8],[8,8],[8,5]]),
+            Polygon([[1.5,1],[1.65,1],[1.65,2],[1.5,2]]),
+            Polygon([[2.5,0],[2.65,0],[2.65,1],[2.5,1]]),
+            Circle((4,1),0.5)
         ]
 
 class Movement:
-    def __init__(self, RPM=[1,1], r=0.5, L=0.5, alpha=0.1):
+    def __init__(self, RPM=[1,1], r=0.5, L=0.5, alpha=0.01):
         self.alpha = alpha
         self.r = r
         self.L = L
         self.movements = [
-            [0, RPM[0]],
-            [RPM[0], 0],
-            [RPM[0], RPM[0]],
-            [0, RPM[1]],
-            [RPM[1], 0],
-            [RPM[1], RPM[1]],
-            [RPM[0], RPM[1]],
-            [RPM[1], RPM[0]]
+        [0, RPM[0]],
+        [RPM[0], 0],
+        [RPM[0], RPM[0]],
+        [0, RPM[1]],
+        [RPM[1], 0],
+        [RPM[1], RPM[1]],
+        [RPM[0], RPM[1]],
+        [RPM[1], RPM[0]]
         ]
 
     def calc_offset(self, start_angle):
@@ -251,6 +252,26 @@ class Polygon(Hurdle):
         plt = patches.Polygon(xy=self.points.vertices)
         ax.add_artist(plt)
         plt.set_facecolor('k')
+
+class Ellipse(Hurdle):
+    def __init__(self, center, major, minor):
+        super(Ellipse,self).__init__()
+        self.center = center
+        self.major = major
+        self.minor = minor
+
+    def within(self, pt, buffer_=0):
+        val = ((pt[0]-self.center[0])/(self.major/2+buffer_))**2.0 + ((pt[1]-self.center[1])/(self.minor/2+buffer_))**2.0
+        return val <= 1
+
+    def plot(self, ax):
+        e = patches.Ellipse(xy=self.center,width=self.major,height=self.minor)
+        ax.add_artist(e)
+        e.set_facecolor('k')
+
+class Circle(Ellipse):
+    def __init__(self, center, radius):
+        super(Circle,self).__init__(center, radius, radius)
 
 class Choice:
     start               = None      
@@ -406,7 +427,7 @@ if __name__ == "__main__":
     choice = parse_args()
     rospy.init_node('planner', anonymous=True)
     publisher = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-    sleep = choice.time*10
+    sleep = choice.time*60
     hurdle_map = NewMap()
     movement = Movement(
             choice.RPM,
