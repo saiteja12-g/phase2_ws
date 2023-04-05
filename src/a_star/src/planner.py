@@ -15,8 +15,13 @@ import argparse
 import rospy
 from geometry_msgs.msg import Twist
 
+<<<<<<< HEAD:src/a_star/src/planner.py
 START = [1, 1, 10]
 GOAL = [5, 0]
+=======
+START = [1, 1, 0]
+GOAL = [5, 1.5]
+>>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
 RPM = [100, 200]
 CLEARANCE = 0.01
 
@@ -125,23 +130,27 @@ class NewMap(Map):
         self.hurdles = [
             Polygon([[1.5,1],[1.65,1],[1.65,2],[1.5,2]]),
             Polygon([[2.5,0],[2.65,0],[2.65,1],[2.5,1]]),
+<<<<<<< HEAD:src/a_star/src/planner.py
             # Circle((4,1),0.5)
+=======
+            Circle((4,1),0.5)
+>>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
         ]
 
 class Movement:
-    def __init__(self, RPM=[1,1], r=0.5, L=0.5, alpha=0.1):
+    def __init__(self, RPM=[1,1], r=0.5, L=0.5, alpha=0.01):
         self.alpha = alpha
         self.r = r
         self.L = L
         self.movements = [
-            [0, RPM[0]],
-            [RPM[0], 0],
-            [RPM[0], RPM[0]],
-            [0, RPM[1]],
-            [RPM[1], 0],
-            [RPM[1], RPM[1]],
-            [RPM[0], RPM[1]],
-            [RPM[1], RPM[0]]
+        [0, RPM[0]],
+        [RPM[0], 0],
+        [RPM[0], RPM[0]],
+        [0, RPM[1]],
+        [RPM[1], 0],
+        [RPM[1], RPM[1]],
+        [RPM[0], RPM[1]],
+        [RPM[1], RPM[0]]
         ]
 
     def calc_offset(self, start_angle):
@@ -255,6 +264,28 @@ class Polygon(Hurdle):
         ax.add_artist(plt)
         plt.set_facecolor('k')
 
+<<<<<<< HEAD:src/a_star/src/planner.py
+=======
+class Ellipse(Hurdle):
+    def __init__(self, center, major, minor):
+        super(Ellipse,self).__init__()
+        self.center = center
+        self.major = major
+        self.minor = minor
+
+    def within(self, pt, buffer_=0):
+        val = ((pt[0]-self.center[0])/(self.major/2+buffer_))**2.0 + ((pt[1]-self.center[1])/(self.minor/2+buffer_))**2.0
+        return val <= 1
+
+    def plot(self, ax):
+        e = patches.Ellipse(xy=self.center,width=self.major,height=self.minor)
+        ax.add_artist(e)
+        e.set_facecolor('k')
+
+class Circle(Ellipse):
+    def __init__(self, center, radius):
+        super(Circle,self).__init__(center, radius, radius)
+>>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
 
 class Choice:
     start               = None      
@@ -440,5 +471,10 @@ if __name__ == "__main__":
     for message in route:
         publisher.publish(message)
         rospy.sleep(sleep)
+<<<<<<< HEAD:src/a_star/src/planner.py
     publisher.publish(Twist())
     rospy.spin()
+=======
+        publisher.publish(Twist())
+    rospy.spin()
+>>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
