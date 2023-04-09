@@ -4,5 +4,5 @@ catkin_make
 
 source devel/setup.bash
 
-roslaunch a_star plan.launch
+roslaunch a_star plan.launch -v True
 
