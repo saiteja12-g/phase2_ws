@@ -1,2 +1,0 @@
-a_star
--DCATKIN_DEVEL_PREFIX=/home/saiteja/phase2_ws/devel -DCMAKE_INSTALL_PREFIX=/home/saiteja/phase2_ws/install -DCATKIN_WHITELIST_PACKAGES=a_star -G Unix Makefiles
