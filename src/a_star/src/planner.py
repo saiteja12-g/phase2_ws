@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 import time
 from abc import ABCMeta, abstractmethod
 import numpy as np
@@ -15,15 +14,10 @@ import argparse
 import rospy
 from geometry_msgs.msg import Twist
 
-<<<<<<< HEAD:src/a_star/src/planner.py
-START = [1, 1, 10]
-GOAL = [5, 0]
-=======
-START = [1, 1, 0]
-GOAL = [5, 1.5]
->>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
-RPM = [100, 200]
-CLEARANCE = 0.01
+START = [0.8, 1.1, 0]
+GOAL = [5, 1.8]
+RPM = [30, 40]
+CLEARANCE = 0.04
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve for an best path via A*.") 
@@ -35,9 +29,11 @@ def parse_args():
         default=RPM, nargs='+', type=float, help="Input RPM")
     parser.add_argument("-c", "--clearance", 
         default=CLEARANCE, type=float, help="hurdle avoidance clearance.")
+    parser.add_argument("-v", "--visualize", action="store_true",
+        help="Generate a video of the path planning process.")
     args,_ = parser.parse_known_args()
-    args.start[2]*=(180*7)/22
-    choice = Choice(args.start, args.goal, args.RPM, args.clearance)
+    args.start[2]*=180/3.14159
+    choice = Choice(args.start, args.goal, args.RPM, args.clearance, args.visualize)
     return choice
 
 def get_route(path, r, L):
@@ -107,7 +103,7 @@ class Map:
         return [self.limit1[1]-self.limit1[0],self.limit2[1]-self.limit2[0]]
 
     def check_workspace(self, point, counter=0):
-        return self.workspace.contains_point(point, radius=-(counter+1))
+        return self.workspace.contains_point(point, radius=-(counter+0.02))
 
     def check_hurdle(self, point, counter=0):
         return any([hurdle.inside(point,counter) for hurdle in self.hurdles])
@@ -128,13 +124,9 @@ class NewMap(Map):
     def __init__(self):
         super().__init__([0,0],[6,2])
         self.hurdles = [
-            Polygon([[1.5,1],[1.65,1],[1.65,2],[1.5,2]]),
-            Polygon([[2.5,0],[2.65,0],[2.65,1],[2.5,1]]),
-<<<<<<< HEAD:src/a_star/src/planner.py
-            # Circle((4,1),0.5)
-=======
-            Circle((4,1),0.5)
->>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
+            Polygon([[1.5,0.75],[1.65,0.75],[1.65,2],[1.5,2]]),
+            Polygon([[2.5,0],[2.65,0],[2.65,1.25],[2.5,1.25]]),
+            Circle((4,1.1),0.5)
         ]
 
 class Movement:
@@ -153,18 +145,29 @@ class Movement:
         [RPM[1], RPM[0]]
         ]
 
-    def calc_offset(self, start_angle):
-        _,attempts,_ = self.attempt([0,0,0])
-        X = set([abs(m[0]) for m in attempts if m[0]!=0])
-        T = [m[2] for m in attempts]
-        T = set([m for m in T+[start_angle] if m!=0])
-        digit = lambda x: -int(math.floor(math.log10(abs(x))))
-        round_off = lambda x,d: np.floor(x*10**d)/10.0**d
-        result1 = min([round_off(v,digit(v)) for v in X]) 
-        result2 = min([round_off(v,digit(v)) for v in T]) 
-        result1 = max(result1, 0.1)
-        result2 = max(result2, 15)
-        return [result1, result1, result2]
+    def calc_offset(self, start_theta):
+        """Calculate necessary X/Y/Theta resolution
+        """
+        _,moves,_ = self.attempt([0,0,0])
+        X = set([abs(m[0]) for m in moves if m[0]!=0])
+        Y = set([abs(m[1]) for m in moves if m[1]!=0])
+
+        T = [m[2] for m in moves]
+        T = set([m for m in T+[start_theta] if m!=0])
+
+        # get recommended resolution:
+        leading_digit = lambda x: -int(math.floor(math.log10(abs(x))))
+        round_to_first = lambda x,d: np.floor(x*10**d)/10.0**d
+        res_x = min([round_to_first(v,leading_digit(v)) for v in X])
+        res_y = min([round_to_first(v,leading_digit(v)) for v in Y]) 
+        res_t = min([round_to_first(v,leading_digit(v)) for v in T]) 
+        
+        # set some more reasonable limits
+        res_x = max(res_x, 0.05)
+        res_y = max(res_y, 0.05)
+        res_t = max(res_t, 10)
+        print(res_x,res_y,res_t)
+        return [res_x, res_y, res_t]
 
     def attempt(self, current_position):
         movements = []
@@ -257,50 +260,48 @@ class Polygon(Hurdle):
         self.points = plt_path.Path(np.array(points))
 
     def inside(self, point, counter=0):
-        return self.points.contains_point(point, radius=-(counter+1))
+        return self.points.contains_point(point, radius=-(counter+0.5))
 
     def plot(self, ax):
         plt = patches.Polygon(xy=self.points.vertices)
         ax.add_artist(plt)
         plt.set_facecolor('k')
 
-<<<<<<< HEAD:src/a_star/src/planner.py
-=======
 class Ellipse(Hurdle):
-    def __init__(self, center, major, minor):
+    def __init__(self, middle, major, minor):
         super(Ellipse,self).__init__()
-        self.center = center
+        self.middle = middle
         self.major = major
         self.minor = minor
 
-    def within(self, pt, buffer_=0):
-        val = ((pt[0]-self.center[0])/(self.major/2+buffer_))**2.0 + ((pt[1]-self.center[1])/(self.minor/2+buffer_))**2.0
-        return val <= 1
+    def within(self, point, counter=0):
+        value = ((point[0]-self.middle[0])/(self.major/2+counter))**2.0 + ((point[1]-self.middle[1])/(self.minor/2+counter))**2.0
+        return value <= 1
 
     def plot(self, ax):
-        e = patches.Ellipse(xy=self.center,width=self.major,height=self.minor)
-        ax.add_artist(e)
-        e.set_facecolor('k')
+        plt = patches.Ellipse(xy=self.middle,width=self.major,height=self.minor)
+        ax.add_artist(plt)
+        plt.set_facecolor('k')
 
 class Circle(Ellipse):
-    def __init__(self, center, radius):
-        super(Circle,self).__init__(center, radius, radius)
->>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
+    def __init__(self, middle, radius):
+        super(Circle,self).__init__(middle, radius, radius)
 
 class Choice:
     start               = None      
     goal                = None     
     RPM                 = None     
     clearance           = None         
-    radius              = 0.354/2   
+    radius              = 0.105  
     wheel_radius        = 0.033   
-    separation    = 0.16      
+    separation    = 0.178      
     time            = 3.0/60    
-    def __init__(self, start, goal, RPM, clearance):
+    def __init__(self, start, goal, RPM, clearance, visualize):
         self.start = start
         self.goal = goal
         self.RPM = RPM
         self.clearance = clearance
+        self.visualize = visualize
 
 class AStar:
     def __init__(self, matrix, source):
@@ -349,7 +350,7 @@ class AStar:
             return False
         return True
     
-    def get_path(self):
+    def path_details(self):
         current_hash = self.goal
         path = []
         price = self.distance[current_hash]
@@ -360,14 +361,24 @@ class AStar:
         path.reverse()
         path = [self.matrix.cells[p] for p in path] 
         return path,price 
+    
+    def exploration_details(self, stop=False, destination=None):
+        explored_cells = []
+        explored_prices = []
+        for index, cost in self.visited.items():
+            explored_cells.append(self.matrix.cells[index])
+            explored_prices.append(cost)
+            if stop and self.matrix.cells[index]==destination:
+                break
+        return explored_cells, explored_prices
 
     def visited_details(self, stop=False, destination=None):
         visited_cells = []
         visited_prices = []
-        for hash_, price in self.visited.items():
-            visited_cells.append(self.matrix.cells[hash_])
+        for index, price in self.visited.items():
+            visited_cells.append(self.matrix.cells[index])
             visited_prices.append(price)
-            if stop and self.matrix.cells[hash_]==destination:
+            if stop and self.matrix.cells[index]==destination:
                 break
         return visited_cells, visited_prices
 
@@ -461,20 +472,24 @@ if __name__ == "__main__":
     matrix = Matrix(hurdle_map, start_cell, counter=counter)
     print("Let's do A* search...")
     d = AStar(matrix, start_cell)
-    if not d.solve(goal_cell, goal_tolerance=10*offset[0]):
+    if not d.solve(goal_cell, goal_tolerance=1*offset[0]):
         print("Unable to find path to the goal cell.")
         sys.exit(1)
-    best_path,_ = d.get_path()
+    best_path,_ = d.path_details()
     plot_path(hurdle_map, best_path, True)
+    if choice.visualize:
+        visualizer = ExplorationVisualizer(
+                hurdle_map, 
+                best_path,
+                *d.exploration_details(True, goal_cell)
+        ) 
+        visualizer.plot(True)
+    else:
+        plot_path(hurdle_map, best_path, True)
     route = get_route(best_path, choice.wheel_radius, choice.separation)
-    print("Publishing velocities")
-    for message in route:
-        publisher.publish(message)
-        rospy.sleep(sleep)
-<<<<<<< HEAD:src/a_star/src/planner.py
-    publisher.publish(Twist())
-    rospy.spin()
-=======
-        publisher.publish(Twist())
-    rospy.spin()
->>>>>>> 1e6eeb9ecf6b4425001954a0e40e827d98ff76d8:turtlebot_planner/src/turtlebot_planner/planner.py
+    # print("Publishing velocities")
+    # for message in route:
+    #     publisher.publish(message)
+    #     rospy.sleep(sleep)
+    #     publisher.publish(Twist())
+    # rospy.spin()
