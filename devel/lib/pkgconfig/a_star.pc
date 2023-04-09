@@ -1,8 +1,0 @@
-prefix=/home/saiteja/phase2_ws/devel
-
-Name: a_star
-Description: Description of a_star
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
