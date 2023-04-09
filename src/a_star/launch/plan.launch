@@ -4,14 +4,14 @@
     <arg name="sy" default="1.1" doc="Y start location (meters)"/>
     <arg name="st" default="0" doc="Yaw start location (radians)"/>
     <arg name="gx" default="5" doc="X goal location (meters)"/>
-    <arg name="gy" default="1.8" doc="Y goal location (meters)"/>
-    <arg name="rpm1" default="30" doc="Wheel RPM #1 (rotations/minute)"/>
-    <arg name="rpm2" default="40" doc="Wheel RPM #2 (rotations/minute)" />
-    <arg name="clearance" default="0.04" doc="Minimum obstacle clearance (meters)"/>
+    <arg name="gy" default="1" doc="Y goal location (meters)"/>
+    <arg name="rpm1" default="200" doc="Wheel RPM #1 (rotations/minute)"/>
+    <arg name="rpm2" default="100" doc="Wheel RPM #2 (rotations/minute)" />
+    <arg name="clearance" default="0.2" doc="Minimum obstacle clearance (meters)"/>
 
     <include file="$(find a_star)/launch/new_world.launch">
     </include>
 
     <node name="planner" pkg="a_star" type="planner.py" output="screen" 
-	args="-s $(arg sx) $(arg sy) $(arg st) -g $(arg gx) $(arg gy) -r $(arg rpm1) $(arg rpm2) -c $(arg clearance)" />
+	args="-s $(arg sx) $(arg sy) $(arg st) -g $(arg gx) $(arg gy) -r $(arg rpm1) $(arg rpm2) -c $(arg clearance) -v" />
 </launch>

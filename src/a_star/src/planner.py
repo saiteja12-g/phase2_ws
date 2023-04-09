@@ -15,9 +15,9 @@ import rospy
 from geometry_msgs.msg import Twist
 
 START = [0.8, 1.1, 0]
-GOAL = [5, 1.8]
-RPM = [30, 40]
-CLEARANCE = 0.04
+GOAL = [5, 1]
+RPM = [10, 20]
+CLEARANCE = 0.2
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Solve for an best path via A*.") 
@@ -103,7 +103,7 @@ class Map:
         return [self.limit1[1]-self.limit1[0],self.limit2[1]-self.limit2[0]]
 
     def check_workspace(self, point, counter=0):
-        return self.workspace.contains_point(point, radius=-(counter+0.02))
+        return self.workspace.contains_point(point, radius=-(counter-0.01))
 
     def check_hurdle(self, point, counter=0):
         return any([hurdle.inside(point,counter) for hurdle in self.hurdles])
@@ -130,7 +130,7 @@ class NewMap(Map):
         ]
 
 class Movement:
-    def __init__(self, RPM=[1,1], r=0.5, L=0.5, alpha=0.01):
+    def __init__(self, RPM=[1,1], r=0.5, L=0.5, alpha=0.1):
         self.alpha = alpha
         self.r = r
         self.L = L
@@ -161,13 +161,14 @@ class Movement:
         res_x = min([round_to_first(v,leading_digit(v)) for v in X])
         res_y = min([round_to_first(v,leading_digit(v)) for v in Y]) 
         res_t = min([round_to_first(v,leading_digit(v)) for v in T]) 
-        
-        # set some more reasonable limits
-        res_x = max(res_x, 0.05)
-        res_y = max(res_y, 0.05)
-        res_t = max(res_t, 10)
         print(res_x,res_y,res_t)
-        return [res_x, res_y, res_t]
+
+        # set some more reasonable limits
+        res_x = max(res_x, 0.1)
+        res_y = max(res_y, 0.1)
+        res_t = max(res_t, 1)
+        print(res_x,res_y,res_t)
+        return [0.03, 0.03, 15]
 
     def attempt(self, current_position):
         movements = []
@@ -260,7 +261,7 @@ class Polygon(Hurdle):
         self.points = plt_path.Path(np.array(points))
 
     def inside(self, point, counter=0):
-        return self.points.contains_point(point, radius=-(counter+0.5))
+        return self.points.contains_point(point, radius=(counter+0.1))
 
     def plot(self, ax):
         plt = patches.Polygon(xy=self.points.vertices)
@@ -274,7 +275,7 @@ class Ellipse(Hurdle):
         self.major = major
         self.minor = minor
 
-    def within(self, point, counter=0):
+    def inside(self, point, counter=0):
         value = ((point[0]-self.middle[0])/(self.major/2+counter))**2.0 + ((point[1]-self.middle[1])/(self.minor/2+counter))**2.0
         return value <= 1
 
@@ -292,7 +293,7 @@ class Choice:
     goal                = None     
     RPM                 = None     
     clearance           = None         
-    radius              = 0.105  
+    radius              = 0.120 
     wheel_radius        = 0.033   
     separation    = 0.178      
     time            = 3.0/60    
@@ -464,6 +465,8 @@ if __name__ == "__main__":
     Cell.set_offset(offset)
     Cell.set_hash_offset(hurdle_map.dimension()+[0])
     counter = choice.radius + choice.clearance
+    print(choice.radius)
+    print(counter)
     start_cell = Cell(choice.start)
     goal_cell = Cell(choice.goal+[0])
     print("Start cell: {}".format(start_cell))
@@ -472,7 +475,7 @@ if __name__ == "__main__":
     matrix = Matrix(hurdle_map, start_cell, counter=counter)
     print("Let's do A* search...")
     d = AStar(matrix, start_cell)
-    if not d.solve(goal_cell, goal_tolerance=1*offset[0]):
+    if not d.solve(goal_cell, goal_tolerance=5*offset[0]):
         print("Unable to find path to the goal cell.")
         sys.exit(1)
     best_path,_ = d.path_details()
@@ -487,9 +490,10 @@ if __name__ == "__main__":
     else:
         plot_path(hurdle_map, best_path, True)
     route = get_route(best_path, choice.wheel_radius, choice.separation)
-    # print("Publishing velocities")
-    # for message in route:
-    #     publisher.publish(message)
-    #     rospy.sleep(sleep)
-    #     publisher.publish(Twist())
-    # rospy.spin()
+    print("Publishing velocities")
+    for message in route:
+        publisher.publish(message)
+        rospy.sleep(sleep)
+        publisher.publish(Twist())
+    rospy.spin()
+    print('finished')
